@@ -1,0 +1,332 @@
+﻿Program.Sub.ScreenSU.Start
+Gui.F_SelectCheckDate..Create
+Gui.F_SelectCheckDate..Caption("Selecciona Rango de Fecha del Reporte")
+Gui.F_SelectCheckDate..Size(6900,3420)
+Gui.F_SelectCheckDate..MinX(0)
+Gui.F_SelectCheckDate..MinY(0)
+Gui.F_SelectCheckDate..Position(0,0)
+Gui.F_SelectCheckDate..BackColor(-2147483633)
+Gui.F_SelectCheckDate..MousePointer(0)
+Gui.F_SelectCheckDate..Event(UnLoad,UnloadAll)
+Gui.F_SelectCheckDate.lbl1.Create(Label,"De fecha",True,1455,255,0,540,600,True,0,"Arial",10,-2147483633,0)
+Gui.F_SelectCheckDate.dtpFrom.Create(DatePicker)
+Gui.F_SelectCheckDate.dtpFrom.Size(1935,285)
+Gui.F_SelectCheckDate.dtpFrom.Position(2070,540)
+Gui.F_SelectCheckDate.cmdLoad.Create(Button)
+Gui.F_SelectCheckDate.cmdLoad.Size(1095,450)
+Gui.F_SelectCheckDate.cmdLoad.Position(3570,1950)
+Gui.F_SelectCheckDate.cmdLoad.Caption("Generar")
+Gui.F_SelectCheckDate.cmdLoad.FontSize(10)
+Gui.F_SelectCheckDate.cmdLoad.Event(Click,cmdLoad_Click)
+Gui.F_SelectCheckDate.dtpTo.Create(DatePicker)
+Gui.F_SelectCheckDate.dtpTo.Size(1935,285)
+Gui.F_SelectCheckDate.dtpTo.Position(2070,1260)
+Gui.F_SelectCheckDate.lbl2.Create(Label,"A fecha ",True,1455,255,0,540,1320,True,0,"Arial",10,-2147483633,0)
+Gui.F_GLAPCheck..Create
+Gui.F_GLAPCheck..Caption("Reporte DIOT")
+Gui.F_GLAPCheck..Size(18510,11715)
+Gui.F_GLAPCheck..MinX(18090)
+Gui.F_GLAPCheck..MinY(11010)
+Gui.F_GLAPCheck..Position(0,0)
+Gui.F_GLAPCheck..BackColor(-2147483633)
+Gui.F_GLAPCheck..MousePointer(0)
+Gui.F_GLAPCheck..Event(UnLoad,F_GLAPCheck_UnLoad)
+Gui.F_GLAPCheck.cmdExport.Create(Button)
+Gui.F_GLAPCheck.cmdExport.Size(1395,375)
+Gui.F_GLAPCheck.cmdExport.Position(16680,165)
+Gui.F_GLAPCheck.cmdExport.Caption("Exportar")
+Gui.F_GLAPCheck.cmdExport.Event(Click,cmdExport_Click)
+Gui.F_GLAPCheck.GsGridDIOT.Create(GsGridControl)
+Gui.F_GLAPCheck.GsGridDIOT.Size(17880,10350)
+Gui.F_GLAPCheck.GsGridDIOT.Position(225,645)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.ODBC.Connection!CONX.OpenConnection(v.Ambient.PDSN,v.Ambient.PUser,v.Ambient.PPass)
+
+F.Intrinsic.Control.If(v.Caller.Switches,=,"D")
+	Gui.F_SelectCheckDate..Show
+F.Intrinsic.Control.EndIf
+
+
+
+Program.Sub.Main.End
+
+Program.Sub.cmdLoad_Click.Start
+V.Local.sSQL.Declare
+V.Local.sFilter.Declare
+v.Local.fRet.Declare
+
+Gui.F_SelectCheckDate..Enabled(False)
+F.Intrinsic.Control.If(V.Screen.F_SelectCheckDate!dtpFrom.Value,>,v.Screen.F_SelectCheckDate!dtpTo.Value)
+	F.Intrinsic.UI.Msgbox("Fecha Invalida")
+	Gui.F_SelectCheckDate..Enabled(True)
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+
+
+'----------------------------------------------------Tab ------------------------------------------------ DIOT
+'Function.Intrinsic.Debug.InvokeDebugger
+'Function.Intrinsic.Debug.Stop
+
+F.Intrinsic.Control.If(v.DataTable.GLAPCheckDIOT_DT.Exists,=,true)
+	F.Data.DataView.Close("GLAPCheckDIOT_DT", "GLAPCheckDIOT_DV")
+	F.Data.Datatable.Close("GLAPCheckDIOT_DT")
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.String.Build("SELECT DISTINCT INVOICE_NO, concat(concat(concat(concat(Right(CHECK_DATE,2),'/'),SUBSTRING(CHECK_DATE,5,2)),'/'),left(CHECK_DATE,4))  as CHECK_DATE,CHECK_NUMBER,rtrim(CUST_VENDOR) AS PROVEEDOR,CHECK_NAME,CHECK_GROSS_CMPNY from GL_AP_CHECK_DTL where CHECK_DATE between '{0}' and '{1}' ORDER BY INVOICE_NO",v.Screen.F_SelectCheckDate!dtpFrom.Value.FormatYYYYMMDD,v.Screen.F_SelectCheckDate!dtpTo.Value.FormatYYYYMMDD, v.Local.sSQL)
+F.Data.DataTable.CreateFromSQL("GLAPCheckDIOT_DT", "CONX", v.Local.sSQL,true)
+F.Data.DataTable.AddColumn("GLAPCheckDIOT_DT", "TAX_GRP_CODE", "String")
+F.Data.DataTable.AddColumn("GLAPCheckDIOT_DT", "NIT_NO", "String")
+F.Data.DataTable.AddColumn("GLAPCheckDIOT_DT", "CURRENCY", "String")
+
+F.Data.Dictionary.CreateFromSQL("TaxCode_Dic", "CONX", "select distinct rtrim(VENDOR_ID) AS PROVEEDOR,DFLT_TAX_GRP_CODE from VAT_VEND_TAX")
+F.Data.Dictionary.SetDefaultReturn("TaxCode_Dic", "")
+F.Data.DataTable.FillFromDictionary("GLAPCheckDIOT_DT", "TaxCode_Dic", "PROVEEDOR","TAX_GRP_CODE")
+F.Data.Dictionary.Close("TaxCode_Dic")
+
+F.Data.Dictionary.CreateFromSQL("TaxID_Dic", "CONX", "select distinct rtrim(VENDOR_ID) AS PROVEEDOR,NIT_NO from VAT_VEND_TAX")
+F.Data.Dictionary.SetDefaultReturn("TaxID_Dic","")
+F.Data.DataTable.FillFromDictionary("GLAPCheckDIOT_DT", "TaxID_Dic", "PROVEEDOR","NIT_NO")
+F.Data.Dictionary.Close("TaxID_Dic")
+
+F.Data.Dictionary.CreateFromSQL("Curr_Dic", "CONX", "select distinct rtrim(VENDOR) AS PROVEEDOR,CURRENCY from VENDOR_CURR")
+F.Data.Dictionary.SetDefaultReturn("Curr_Dic", "")
+F.Data.DataTable.FillFromDictionary("GLAPCheckDIOT_DT", "Curr_Dic", "PROVEEDOR", "CURRENCY")
+F.Data.Dictionary.Close("Curr_Dic")
+
+'FOR COLUMN "SUBTOTAL" 
+'FOR COLUMN "SUBTOTAL" 
+F.Data.DataTable.AddExpressionColumn("GLAPCheckDIOT_DT","SUBTOTAL","Float", "IIF(TAX_GRP_CODE = 'MXPRO',CHECK_GROSS_CMPNY/1.16,IIF(TAX_GRP_CODE = 'MXFLE',CHECK_GROSS_CMPNY/1.12,IIF(TAX_GRP_CODE = 'MXHON',CHECK_GROSS_CMPNY/0.9534,IIF(TAX_GRP_CODE = 'RO6',CHECK_GROSS_CMPNY/1.10,IIF(TAX_GRP_CODE = ' ',CHECK_GROSS_CMPNY,CHECK_GROSS_CMPNY)))))")
+
+'FOR COLUMN "IVA16" if VAT_VEND_TAX.DFLT_TAX_GRP_CODE = "MXPRO" THEN SET COLUMN SUBTOTAL*0.16
+F.Data.DataTable.AddExpressionColumn("GLAPCheckDIOT_DT","IVA16","Float","IIF(TAX_GRP_CODE = 'MXPRO',SUBTOTAL*0.16,IIF(TAX_GRP_CODE = 'MXFLE',SUBTOTAL*0.16,IIF(TAX_GRP_CODE = 'MXHON',SUBTOTAL*0.16,IIF(TAX_GRP_CODE = 'RO6',SUBTOTAL*0.16,0))))")
+
+'FOR COLUMN "IVA4" if VAT_VEND_TAX.DFLT_TAX_GRP_CODE = FLE THEN SET SUBTOTAL*.04))
+F.Data.DataTable.AddExpressionColumn("GLAPCheckDIOT_DT", "IVA4", "Float", "IIF(TAX_GRP_CODE = 'MXFLE',SUBTOTAL*0.04,0)")
+'FOR COLUMN "IVA1066" if VAT_VEND_TAX.DFLT_TAX_GRP_CODE = HON THEN SET SUBTOTAL*.1066)
+F.Data.DataTable.AddExpressionColumn("GLAPCheckDIOT_DT", "IVA1066", "Float","IIF(TAX_GRP_CODE = 'MXHON',SUBTOTAL*0.1066,0)")
+'FOR COLUMN "ISR10" IF VAT_VEND_TAX.DFLT_TAX_GRP_CODE = HON THEN SET SUBTOTAL*.10)
+F.Data.DataTable.AddExpressionColumn("GLAPCheckDIOT_DT", "ISR10", "Float","IIF(TAX_GRP_CODE = 'MXHON',SUBTOTAL*0.10,0)")
+
+'FOR COLUMN "RO6" IF VAT_VEND_TAX.DFLT_TAX_GRP_CODE = RO6 THEN SET SUBTOTAL*.06)
+F.Data.DataTable.AddExpressionColumn("GLAPCheckDIOT_DT", "RO6", "Float","IIF(TAX_GRP_CODE = 'RO6',SUBTOTAL*0.06,0)")
+
+'FOR COLUMN TOTAL SUBTOTAL+IVA16-IVA4-IVA1066-IVA10
+F.Data.DataTable.AddExpressionColumn("GLAPCheckDIOT_DT", "TOTAL", "Float","IIF(TAX_GRP_CODE = 'MXPRO',SUBTOTAL+IVA16-IVA4-IVA1066-ISR10,IIF(TAX_GRP_CODE = 'MXFLE',SUBTOTAL+IVA16-IVA4-IVA1066-ISR10,IIF(TAX_GRP_CODE = 'MXHON',SUBTOTAL+IVA16-IVA4-IVA1066-ISR10,IIF(TAX_GRP_CODE = 'RO6',SUBTOTAL+IVA16-RO6-IVA4-IVA1066-ISR10,IIF(TAX_GRP_CODE = ' ',SUBTOTAL,SUBTOTAL)))))")
+
+
+
+
+F.Data.DataView.Create("GLAPCheckDIOT_DT", "GLAPCheckDIOT_DV",22)
+
+Gui.F_GLAPCheck.GsGridDIOT.AddGridviewFromDataview("GLAPCheckDIOT_GV", "GLAPCheckDIOT_DT", "GLAPCheckDIOT_DV")
+
+'Set column properties 
+
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","MultiSelect",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","AllowSort",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","AllowFilter",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","OptionsDetailShowDetailTabs",False)
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","OptionsViewShowGroupPanel",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","OptionsViewColumnAutoWidth",False)
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","OptionsViewRowAutoHeight",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","ColumnPanelRowHeight",80)
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","SuppressNothingDates",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetGridviewProperty("GLAPCheckDIOT_GV","OptionsSelectionEnableAppearanceFocusedRow",True)
+
+
+
+
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "Check_Date", "Caption", "FECHA" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NUMBER", "Caption", "NUMERO CHEQUE" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "NIT_NO",  "Caption", "RFC" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CURRENCY",  "Caption", "MONEDA" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "PROVEEDOR", "Caption", "CLAVE PROVEEDOR" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NAME", "Caption", "NOMBRE PROVEEDOR" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TAX_GRP_CODE","Caption", "CLAVE IMPUESTO")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "INVOICE_NO", "Caption", "FACTURA" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA16", "Caption", "IVA 16%" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA4", "Caption", "IVA 4%" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA1066", "Caption", "IVA 10.66%" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "ISR10", "Caption", "ISR 10%" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "RO6", "Caption", "RET 6%" )
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TOTAL", "Caption", "TOTAL" )
+
+
+'WORD WRAP
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "Check_Date", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NUMBER", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "NIT_NO", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CURRENCY", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "PROVEEDOR", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NAME", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TAX_GRP_CODE", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "INVOICE_NO", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA16", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA4", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "SUBTOTAL", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA1066", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "ISR10", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "RO6", "HeaderWordWrap","Wrap")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TOTAL", "HeaderWordWrap","Wrap")
+
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_GROSS_CMPNY", "Visible", False)
+
+
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "Check_Date", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NUMBER", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "NIT_NO", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CURRENCY", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "PROVEEDOR", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NAME", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TAX_GRP_CODE", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "INVOICE_NO", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA16", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA4", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "SUBTOTAL", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA1066", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "ISR10", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "RO6", "HeaderHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TOTAL", "HeaderHAlignment", "Center")
+
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "Check_Date", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NUMBER", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "NIT_NO", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CURRENCY", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "PROVEEDOR", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NAME", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TAX_GRP_CODE", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "INVOICE_NO", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA16", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA4", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "SUBTOTAL", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA1066", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "ISR10", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "RO6", "CellHAlignment", "Center")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TOTAL", "CellHAlignment", "Center")
+
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "Check_Date", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NUMBER", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "NIT_NO", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CURRENCY", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "PROVEEDOR", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NAME", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TAX_GRP_CODE", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "INVOICE_NO", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA16", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA4", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "SUBTOTAL", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA1066", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "ISR10", "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "RO6",  "HeaderBackColor","LightBlue")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TOTAL",  "HeaderBackColor","LightBlue")
+
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "Check_Date", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NUMBER", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "NIT_NO", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CURRENCY", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "PROVEEDOR", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NAME", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TAX_GRP_CODE", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "INVOICE_NO", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA16", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA4", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "SUBTOTAL", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA1066", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "ISR10", "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "RO6",  "HeaderFontBold",True)
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TOTAL",  "HeaderFontBold",True)
+
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA16", "DisplayFormatType","NUMERIC")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA16", "DisplayCustomNumeric","$###.00")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA4", "DisplayFormatType","NUMERIC")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA4", "DisplayCustomNumeric","$###.00")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "SUBTOTAL", "DisplayFormatType","NUMERIC")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "SUBTOTAL", "DisplayCustomNumeric","$###.00")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA1066", "DisplayFormatType","NUMERIC")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA1066", "DisplayCustomNumeric","$###.00")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "ISR10", "DisplayFormatType","NUMERIC")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "ISR10", "DisplayCustomNumeric","$###.00")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "RO6", "DisplayFormatType","NUMERIC")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "RO6", "DisplayCustomNumeric","$###.00")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "Check_Date", "DisplayCustomDatetime","g")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TOTAL", "DisplayFormatType","NUMERIC")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TOTAL", "DisplayCustomNumeric","$###.00")
+
+'"VisibleIndex","0")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "Check_Date","VisibleIndex","0")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NUMBER","VisibleIndex","1")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "NIT_NO", "VisibleIndex", "2")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CURRENCY", "VisibleIndex", "3")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "PROVEEDOR", "VisibleIndex","4")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "CHECK_NAME", "VisibleIndex","5")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "INVOICE_NO", "VisibleIndex","6")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TAX_GRP_CODE","VisibleIndex","7")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "SUBTOTAL", "VisibleIndex","8")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA16", "VisibleIndex","9")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA4", "VisibleIndex","10")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "IVA1066", "VisibleIndex","11")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "ISR10", "VisibleIndex","12")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "RO6", "VisibleIndex","13")
+Gui.F_GLAPCheck.GsGridDIOT.SetColumnProperty("GLAPCheckDIOT_GV", "TOTAL",  "VisibleIndex","14")
+
+
+Gui.F_GLAPCheck.GsGridDIOT.MainView("GLAPCheckDIOT_GV")
+
+Gui.F_SelectCheckDate..Visible(False)
+Gui.F_GLAPCheck..Show
+
+Program.Sub.cmdLoad_Click.End
+
+Program.Sub.F_GLAPCheck_UnLoad.Start
+Gui.F_SelectCheckDate..Enabled(True)
+Gui.F_GLAPCheck..Visible(False)
+Gui.F_SelectCheckDate..Show
+Program.Sub.F_GLAPCheck_UnLoad.End
+
+Program.Sub.UnloadAll.Start
+F.ODBC.Connection!conx.Close
+F.Intrinsic.Control.End
+Program.Sub.UnloadAll.End
+
+Program.Sub.cmdExport_Click.Start
+V.Local.sFileExport.Declare
+V.Local.bExcel.Declare
+V.Local.bFileLocked.Declare
+V.Local.sMsg.Declare
+
+F.Automation.MSExcel.CheckPresence(V.Local.bExcel)
+
+		F.Intrinsic.Control.If(V.Local.bExcel)
+			F.Intrinsic.String.Build("{0}\GAB_5159_Export.xlsx",V.Caller.LocalGssTempDir,V.Local.sFileExport)
+			F.Intrinsic.File.IsFileLocked(V.Local.sFileExport,V.Local.bFileLocked)
+			F.Intrinsic.Control.If(V.Local.bFileLocked)
+				F.Intrinsic.String.Build("El archivo ya esta abierto. Cierre y exporte de nuevo.{0}File: {1}",V.Ambient.NewLine,V.Local.sFileExport,V.Local.sMsg)
+				F.Intrinsic.UI.Msgbox(V.Local.sMsg,"Archivo en uso")
+			F.Intrinsic.Control.Else
+				Gui.F_GLAPCheck.GsGridDIOT.Export(V.Local.sFileExport,"xlsx")
+				F.Intrinsic.Task.ShellExec(0,"",V.Local.sFileExport,"","",1)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.Else
+			F.Intrinsic.String.Build("{0}\GAB_5159_Export.csv",V.Caller.LocalGssTempDir,V.Local.sFileExport)
+			F.Intrinsic.File.IsFileLocked(V.Local.sFileExport,V.Local.bFileLocked)
+			F.Intrinsic.Control.If(V.Local.bFileLocked)
+				F.Intrinsic.String.Build("El archivo ya esta abierto. Cierre y exporte de nuevo.{0}File: {1}",V.Ambient.NewLine,V.Local.sFileExport,V.Local.sMsg)
+				F.Intrinsic.UI.Msgbox(V.Local.sMsg,"Archivo en uso")
+			F.Intrinsic.Control.Else
+				Gui.F_GLAPCheck.GsGridDIOT.Export(V.Local.sFileExport,"csv")
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Task.ShellExec(0,"",V.Local.sFileExport,"","",1)
+		F.Intrinsic.Control.EndIf
+		
+Program.Sub.cmdExport_Click.End
+
+Program.Sub.Comments.Start
+${$5$}$2.0.0.0$}$2
+${$6$}$acardenas$}$20221025121811829$}$WOCvtxu6/EPnAvQJE4I+q+v5cNawXCaAEQwt4mUA26g6v7lO3eC8MogfOxfozqRQSCLUt10xHOXGrY6pUYk46Q==
+Program.Sub.Comments.End
